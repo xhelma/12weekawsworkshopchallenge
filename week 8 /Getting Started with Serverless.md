@@ -194,6 +194,7 @@ sam build
 sam deploy --guided
 ```
 Open `/webapp/src/main.js` in an editor, and paste in the API gateway endpoint URL generated as output of the CloudFormation stack for the value of `axios.defaults.baseURL` variable.
+
 ![im2](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/7b92ea16-5a27-4584-af33-5befff6cf3e9)
 
 Next, initialize Amplify from the root of the web project `/webapp`:
