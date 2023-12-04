@@ -678,9 +678,40 @@ Finally, we will tag the Docker images we built  and push the images to their re
 To do so, navigate to the ECR console and select a repository, then choose `View push commands`. Go back to the Cloud9 instance and paste in the commands for every repository in the same given order in the 
 corresponding directory. Only retrive the authentication token once. Skip the second command since we already built the docker images. When done, you should see the image in the repository with the name `latest`.
 
+# Amazon ECS
+Let's start by creating an ECS cluster named `DEMOGO-ECS` across multiple Availability Zones (AZs) for High Availability. Choose the `DemoGoECSVPC` VPC with the private subnets. The
+cluster will be configured for EC2 instances with `m5.large` as type and `Amazon Linux 2` as OS. The capacity provider will be a newly-created auto scaling group with a minimum desired
+capacity of 2 and maximum of 2. No SSH keys are needed. Enable the `Container Insights` feature to monitor your cluster.
 
+![3](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/f350797c-0857-423b-b047-aee5d833fabd)
 
+To access the applications that we will deploy on the cluster, we'll edit out the launch template of the auto-scaling group to modify the security group to the one named as `ecs-demogo-ECSInstanceSG-XXXXX`. Reconfigure the auto-scaling group to use this new version of the launch template.
+![4](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/b1853ffd-e9f5-4eda-b1aa-97081c6a8cde)
 
+Start an instance refresh so that the EC2 instances will be updated with the new security group.
+![5](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/5d679bdb-34bc-4210-acf0-010ac02c3535)
+
+Now, we'll create task definitions for `web`, `cats` and `dogs` named respectively `webdef`, `catsdef` and `dogsdef`. For the first two, EC2 instances with the OS `Linux/X86_64`, `.5 vCPU` and `1 GB` of memory will be used. Set `bridge` as network mode and the port mapping from `TCP 80` to `HTTP`. For the `dogsdef` however, select AWS Fargate as the infrastructure environment and the app protocol as None. Enable log collection by Amazon CloudWatch for the three of them.
+![6](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/3166a0bb-8775-428b-b078-6b2f3c981920)
+
+From the IAM console, attach the `CloudWatchFullAccess` policy to the `ecsTaskExecutionRole` role. 
+![7](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/ef46c8a4-5846-4357-9862-983857ca6faa)
+
+Now, we will create an application Load Balancer to forward and distribute traffic to our `cats` and `dogs` web application. We'll name it `demogo-alb` and set the scheme to `Internet-facing`. We'll select the public subnets that are using IPv4 addressing. Set the security policy to `ecs-demogo-ALBSG`. We'll configure a target group named `web` that uses the HTTP protocol which will be used to configure the listener. 
+![9](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/589e354f-0d44-4069-853e-2f5699a08547)
+
+Lastly, we're going to create a service based on each task definitions. The `web` and `cats` services are based on task definitions `webdef` and `catsdef` respectively. They both use EC2 as launch type, unlike `dogs` service who uses Fargate. Choose the service type `Replica` with 2 desired tasks. Fo the web service, create a new listener on port 80 TCP and use the existing target group for load balancing. As for the cats and dogs services, use the newly created listener and creates a target group for each of them. 
+![10](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/38991188-2893-4c24-990d-1a29b8793d0a)
+The three services are active and each has 2 running tasks. No EC2 instances are associated to the `dogs` tasks since it uses Amazon Fargate.
+![11](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/809e0d11-633e-4aa9-8c3b-2a96c4e9af9e)
+
+Browse to the DNS name of the load balancer and you'll be redirected to the web service: 
+
+![12](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/f07f0f45-e8b2-4377-9716-a7244af26ff5)
+
+Click on either `I♥Cats` or `I♥Dogs` and keep refreshing the page to dispaly a random picture! 
+
+![output-onlinegiftools](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/aad958f1-b713-4d82-82de-ae0e2fdce6d9)
 
 
 
