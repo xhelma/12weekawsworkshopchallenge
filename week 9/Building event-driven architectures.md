@@ -194,7 +194,123 @@ cd Events
 aws events put-events --entries file://OrderNotification_v1.json
 ```
 ![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/5929b732-193b-454f-8556-21b4867d668d)
-From the discovered schema registry tab, we can see a schema for Order Notification event that we published earlier.
+From the discovered schema registry tab, we can see a schema for Order Notification event that we published earlier. Next we'll generate a sample Lambda function using Amazon SAM CLI.
+Enter the SAM service shell using the command `sam init` then choose the `Infrastructure event management` as the Quick Start application template and select the `python 3.11` runtime.
+Since we are going to consume our previously discovered Order Notification event, the starter template will be an EventBridge App from scratch (100+ Event Schemas). X-ray tracing and
+CloudWatch Application Insights monitoring are not necessary for this app. Name the project `forecast-service` and keep the default AWS profile and our event AWS region. We want to use the newly discovered schema in our project.
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/ec76644e-0475-47a5-a8ed-d16cfe8ce9de)
+Edit the AWS SAM `template.yaml` file found in the `forecast-service` folder to change the event bus name from default to `Orders` and add the following statement to the `template.yaml` file after our Lambda function definition to define a DynamoDB table to store event details for our forecast service.
+```yaml
+# DynamoDB Orders table definition
+OrderDetailsTable:
+  Type: AWS::DynamoDB::Table
+  Properties:
+    TableName: OrderDetails
+    BillingMode: PAY_PER_REQUEST
+    AttributeDefinitions:
+      - AttributeName: orderId
+        AttributeType: S
+    KeySchema:
+      - AttributeName: orderId
+        KeyType: HASH
+```
+Our business logic will store event details in DynamoDB table, as well as publish a new event when Order Notification event is successfully processed and data is available for Third-Party service. So the Lambda function needs extra permissions:
+```yaml
+      Policies:
+      - DynamoDBWritePolicy:
+            TableName: !Ref OrderDetailsTable
+      - EventBridgePutEventsPolicy:
+            EventBusName: Orders
+```
+Open the `app.py` file in the `forecast-service/hello_world_function/hello_world` folder and insert this code block before Lambda handler definition - `def lambda_handler(event, context):` line, to add the required Python libraries imports and initialize DynamoDB and EventBridge clients from AWS SDK:
+```py
+# AWS SDK(boto3) and other libraries imports
+import boto3
+import json
+import uuid
+import datetime
+
+# DynamoDB client
+dynamodb = boto3.resource('dynamodb')
+orderDetailsTable = dynamodb.Table('OrderDetails')
+
+# EventBridge client
+eventBridgeClient = boto3.client('events')
+```
+We also need to add a business logic to our Lambda handler. Replace `#Execute business logic` line with the following code block:
+```py
+
+    # Print Order Notification event details
+    print(detail)
+
+    # New order Id
+    orderId = str(uuid.uuid4())
+
+    # Save Order Notification details into DynamoDB table
+    response = orderDetailsTable.put_item(
+       Item={
+             'orderId': orderId,
+             'category': detail.category,
+             'location': detail.location,
+             'value': str(detail.value)
+       }
+    )
+    print(response)
+
+    # Publish Order Processed event
+    response = eventBridgeClient.put_events(
+       Entries=[
+             {
+                'Time': datetime.datetime.utcnow(),
+                'Source': 'com.aws.forecast',
+                'DetailType': 'Order Processed',
+                'Detail': json.dumps({'orderId': orderId}),
+                'EventBusName': 'Orders'
+             }
+       ]
+    )
+    print(response)
+```
+It's time to deploy the Lambda function project using the `sam deploy -g` in the terminal with the following settings:
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/4ca4c658-babf-4e20-8a7f-d0ecb8d2c157)
+To test our business logic, we need to publish Order Notification event. To do it, run the following script:
+```sh
+cd ../
+cd Events
+aws events put-events --entries file://OrderNotification_v1.json
+```
+From the CloudWatch log group, we can see that the Lambda function was indeed invoked.
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/49e7e644-a5f5-47ab-9d1f-fa014a085f51)
+We can also verify that the our Order Notification event details got stored in the DynamoDB table `OrderDetails`:
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/3d2a3b4a-fe93-4242-9d51-2ddc4e8b0cdd)
+## Archive and Replay
+In this section, we will enable archive for `Orders` custom event bus to match an event with a `com.aws.orders` source, and then replay historical order events to a new SQS queue.
+![eb_replay_arch](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/840b5ef3-2d31-4f3a-ba80-15cda0ea0414)
+
+Create an archive with the name `OrderEventArchive` with a retention period of 30 days. Set filtering on events that match the following pattern:
+```json
+{
+    "source": [
+        "com.aws.orders"
+    ]
+}
+```
+Let's test archiving by sending the following event payload to the `Orders` event bus:
+```json
+    {
+      "category": "office-supplies",
+      "value": 1200,
+      "location": "eu-west"
+    }
+```
+We can check the archive again to verify that the event count and size have been updated.
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/48a34d41-c244-4e84-92a1-28a49193624d)
+
+
+
+
+
+
 
 
 
