@@ -168,10 +168,35 @@ Playground.
 ![playground_arch](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/f5805dfd-8cca-4fa4-a131-2bdfc3e57a3e)
 From the CloudFormation stack outputs, Open the `WildRydesSaasPlaygroundConfigurationUrl` hyperlink. Complete the configuration of the Cognito User pool by adding the username and password.
 ![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/9a098ad1-cd00-43b8-b322-aebcf7b344ba)
+
 Create an event source in the `us-east-1` region. From the EventBridge console, navigate to the Partner event sources and find the `wildrydes.com` event source. Choose Associate with an 
 event bus. Then create a rule that targets the `aws/events/playground` CloudWatch log group.
 Let's test partner events by choosing to send a stream of Shopify events. We can see the corresponding logs from the CloudWatch log group:
 ![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/51fc8c87-3746-4f12-8545-3963741ec489)
+## Using the schema registry
+Now that we have Order events getting published to our EventBridge custom event bus, we will enable Schema Discovery to automatically get schema for those events and we will generate code bindings that will be used to implement a Lambda business logic.
+![eb_schema_arch](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/2a4644b4-0570-473d-b10f-322296df5694)
+Let's start first by enabling schema discovery on the `Orders` event bus. Then, we'll publish a test event from the Cloud9 environment deployed by the CloudFormation stack.
+In the root directory, create a folder called `Events` that contains a file with the name `OrderNotification_v1.json` and has the following JSON test event:
+```json
+[
+  {
+    "EventBusName": "Orders",
+    "Source": "com.aws.orders",
+    "Detail": "{ \"category\": \"lab-supplies\", \"value\": 415, \"location\": \"eu-west\" }",
+    "DetailType": "Order Notification"
+  }
+]
+```
+From the terminal, run this script to publish the test event:
+```sh
+cd Events
+aws events put-events --entries file://OrderNotification_v1.json
+```
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/5929b732-193b-454f-8556-21b4867d668d)
+From the discovered schema registry tab, we can see a schema for Order Notification event that we published earlier.
+
+
 
 
 
