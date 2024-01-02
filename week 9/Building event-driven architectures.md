@@ -90,9 +90,9 @@ From the Cloudwatch log group console, we can verify that we have indeed receive
 ![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/417e7a6a-a719-4ddc-b5d7-86f7fe190db2)
 
 ## Working with EventBridge rules
-An event rule can also route to multiple targets at once. In this step, we will set 3 targets: Amazon API Gateway endpoint, AWS Step Function state machine and Amazon Simple Notification Service 
-(Amazon SNS) topic, which are already provisionned by the CloudFormation stack.
+An event rule can also route to multiple targets at once. In this step, we will set 3 targets: Amazon API Gateway endpoint, AWS Step Function state machine and Amazon Simple Notification Service (Amazon SNS) topic, which are already provisionned by the CloudFormation stack.
 ![eb_rules_2](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/217069d9-db9a-4e53-9d76-47ecaab005ae)
+
 Let's create an EventBridge API destination with the name `api-destination` and add in the API URL found in the output of the CloudFormation stack as a value of the key `ApiUrl`. Select 
 `POST` as the HTTP method and create a new connection called `basic-auth-connection` with `Basic (Username/Password)` as the authorization type. The username is `myUsername` and the
 password is `myPassword`.
@@ -176,6 +176,7 @@ Let's test partner events by choosing to send a stream of Shopify events. We can
 ## Using the schema registry
 Now that we have Order events getting published to our EventBridge custom event bus, we will enable Schema Discovery to automatically get schema for those events and we will generate code bindings that will be used to implement a Lambda business logic.
 ![eb_schema_arch](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/2a4644b4-0570-473d-b10f-322296df5694)
+
 Let's start first by enabling schema discovery on the `Orders` event bus. Then, we'll publish a test event from the Cloud9 environment deployed by the CloudFormation stack.
 In the root directory, create a folder called `Events` that contains a file with the name `OrderNotification_v1.json` and has the following JSON test event:
 ```json
@@ -305,6 +306,68 @@ Let's test archiving by sending the following event payload to the `Orders` even
 ```
 We can check the archive again to verify that the event count and size have been updated.
 ![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/48a34d41-c244-4e84-92a1-28a49193624d)
+Now, we'll create an EventBridge rule called `OrdersReplayRule` for the replayed archive that targets the SQS queue `OrdersReplayQueue` using the following event pattern:
+```json
+{
+  "replay-name": [{
+    "exists": true
+  }],
+  "source": ["com.aws.orders"]
+}
+```
+Start a new replay under the name of `OrdersReplay` that is sourced from the archive and destined to the `Orders` event bus and applying the previously created rule `OrdersReplayRule`.
+![aws](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/eed0907d-f839-420d-b8d7-9aad5c393f00)
+Navigate to the `OrdersReplayQueue` SQS queue and poll for received messages. We can see messages in the queue which are replayed archive order events.
+![Screenshot 2024-01-02 at 11-52-39 Send and receive messages Simple Queue Service us-east-1](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/c8be25d2-f58d-4875-9392-bcdd7ccb8015)
+## Global endpoints
+In this section, we'll make our event-driven application more available with the help of a global endpoint which allows failover to a secondary region.
+
+![eb_globalendpoint_setup_arch](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/7999ae7b-9a16-4dc5-92d1-eeedd8790735)
+
+Let's start by creating a second event bus with the same name as the first one but in the `us-west-2` region. A corresponding rule for CloudWatch is also created.
+Then, we'll create a global endpoint in the primary region with the name `OrdersGlobalEndpoint` that uses a Route 53 health check and a CloudWatch alarm that are deployed using a CloudFormation stack. We'll keep the defaults in the template. Make sure that event replication is enabled.
+![capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/a32a2384-64a6-4ac4-acc8-19cf2a7b6f7c)
+
+Next, we'll use the `PutEvents` API to publish test events to the global endpoint from AWS CLI. To do so, open the Cloud9 environment and the following script after replacing
+with our endpoint ID:
+```sh
+cd Events
+aws events put-events --entries file://OrderNotification_v1.json --endpoint-id xxxxxxxxxx.xxx
+```
+Checking the CloudWatch `/aws/events/orders` log group in both regions, we can see that the published events have identical resource fields, which points to the global endpoint.
+Lastly, we'll try testing the global endpoint failover feature by inverting the Route 53 health check status to unhealthy. We'll repeat publishing the events through the PutEvents API and checking the CloudWatch logs again shows us that events got routed to the secondary region `us-west-2`.
+![capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/96f3d552-ffc2-44d8-aac8-d8a9e1522cee)
+
+# Event-driven with Lambda
+We'll configure the `Inventory` event bus as a successful Lambda Destination on `InventoryFunction` Lambda function, when it is asynchronously invoked and successfuly executed.
+![capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/0b892b72-2812-4a55-9ecd-ef34348cc0dc)
+
+Next, we'll create a rule on the `Orders` event bus called `OrderProcessingRule` that routes the event published by the step function to the `Inventory` function. The rule pattern used is the following:
+```json
+{
+    "source": [
+        "com.aws.orders"
+    ],
+    "detail-type": [
+        "Order Processed"
+    ]
+}
+```
+To test the end-to-end functionality, we're going to publish ublish a message to the Orders EventBridge event bus with the following payload:
+```json
+{
+  "category": "office-supplies",
+  "value": 1200,
+  "location": "eu-west",
+  "OrderDetails": "completed"      
+}
+```
+From the CloudWatch `/aws/events/inventory` log group, we can find the log stream of this event:
+![capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/9170161b-d39e-45bf-ad38-6aebca89586b)
+
+
+
+
 
 
 
