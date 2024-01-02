@@ -353,7 +353,7 @@ Next, we'll create a rule on the `Orders` event bus called `OrderProcessingRule`
     ]
 }
 ```
-To test the end-to-end functionality, we're going to publish ublish a message to the Orders EventBridge event bus with the following payload:
+To test the end-to-end functionality, we're going to publish a message to the Orders EventBridge event bus with the following payload:
 ```json
 {
   "category": "office-supplies",
@@ -364,6 +364,38 @@ To test the end-to-end functionality, we're going to publish ublish a message to
 ```
 From the CloudWatch `/aws/events/inventory` log group, we can find the log stream of this event:
 ![capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/9170161b-d39e-45bf-ad38-6aebca89586b)
+
+We will now handle the case of a failure in the execution of the `InventoryFunction` Lambda function by creating a Lambda Destination to a SQS queue of the name `InventoryFunctionDLQ`.
+![capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/1bc792d4-e6cd-40d7-b63b-4f581acd11d0)
+Similar to the success scenario case, we will test the end-to-end functionality of the failure one by publishing a message to the Orders EventBridge event bus with the following payload:
+```json
+{
+  "category": "office-supplies",
+  "value": 300,
+  "location": "eu-west",
+  "OrderDetails": {
+    "force-error": true
+  }
+}
+```
+On the SQS page, we can see that the `InventoryFunctionDLQ` has one message available:
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/cce91066-b748-47e5-81c9-c49b5b46e249)
+
+# Event-driven with SNS
+In this section, we will build a simple pub/sub implementation using Amazon SNS as our publishing service and Amazon SQS as a subscriber. This will allow us to easily verify the successful delivery of the messages.
+We'll start by creating the SQS queue called `OrdersQueue` that has a standard type.
+To receive messages published to a topic, we must subscribe an endpoint to it. In this case, we will subscribe the SQS queue that we created in the previous step as the endpoint to SNS topic.
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/29b351d4-6b33-4167-8445-f848f89abb1c)
+
+To verify the result of the subscription, you will use the Publish Message functionaliy to publish to the topic and then view the test message that the topic sends to the queue. As a result, the `OrdersQueue` has one available message visible.
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/558a745d-7c2b-4fab-b158-8857f20265c8)
+
+
+
+
+
+
+
 
 
 
