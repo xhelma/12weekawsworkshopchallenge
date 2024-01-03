@@ -406,6 +406,57 @@ Similarly; we'll create another SQS queue for book orders, with the name of `Boo
 }
 ```
 Now, we'll test the sysrem behavior by publishing different kind of messages to the Orders SNS topic:
+- A message with a plain text body and no attribute.
+- A message with a plain text body and a `location` attribute with the value `us-west` which doesn't match the filter.
+- A message with a plain text body and a `location` attribute with the value `eu-west` which does match the filter.
+- A message with no attributes and the following non-matching message body:
+```json
+{
+   "category": "groceries",
+   "value": 555
+}
+```
+- A message with no attributes but with a matching "books" category in its body:
+```json
+{
+"category": "books",
+"value": 70
+}
+```
+Checking the SQS queues, we can see that all 5 messages are delivered to the `Orders` queue, while the `Orders-EU` and the `BookOrders` queues shows 1 message each. 
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/48099d0a-60a4-4caa-a757-6d6468792e5f)
+
+Let's experiment further with advanced message filtering by creating an SQS queue called `Orders-XL`, to store extra-large orders with a quantity of 100 and greater and subscribing it to the `Orders` SNS topic. The subscription filter policy is as follows:
+```json
+{
+  "quantity": [
+    {
+      "numeric": [">=", 100]
+    }
+  ]
+}
+```
+We'll create a similar SQS queue that stores the same type of messages with the added condition that they originate from the EU. We name it `Orders-XL-EU`, subscribe to 
+the `Orders` SNS topic and add to it the following filter policy:
+```json
+{
+  "location": [{ "prefix": "eu" }],
+  "quantity": [
+    {
+      "numeric": [">=", 100]
+    }
+  ]
+}
+```
+Let's test that the filtering is working as it should by sendig 3 messages:
+- A message with a plain text body and a `quantity` attribute with the value `50` which doesn't match the filter.
+- A message with a plain text body and a `quantity` attribute with the value `100` which does match the filter.
+- A message with a plain text body and a `location` attribute with the value `eu-west` and a a `quantity` attribute with the value `100`.
+
+As a result, we see the `Orders` queue having 3 messages delivered, the `Orders-EU` and `Orders-XL-EU` queues showing 1 message delivered and `Orders-XL` with 2 messages delivered.
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/9084ab98-4609-454b-8c49-8b8dba246a7d)
+
+Finally, we'll handle the case of message delivery fails by creating a dead-letter SQS queue, called `OrdersTopicDLQ`, to act as the Dead Letter Queue for messages that the `Orders` SNS topic is unable deliver to subscriptions configured with the DLQ.
 
 
 
