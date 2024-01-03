@@ -383,12 +383,29 @@ On the SQS page, we can see that the `InventoryFunctionDLQ` has one message avai
 
 # Event-driven with SNS
 In this section, we will build a simple pub/sub implementation using Amazon SNS as our publishing service and Amazon SQS as a subscriber. This will allow us to easily verify the successful delivery of the messages.
+
 We'll start by creating the SQS queue called `OrdersQueue` that has a standard type.
 To receive messages published to a topic, we must subscribe an endpoint to it. In this case, we will subscribe the SQS queue that we created in the previous step as the endpoint to SNS topic.
 ![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/29b351d4-6b33-4167-8445-f848f89abb1c)
 
 To verify the result of the subscription, you will use the Publish Message functionaliy to publish to the topic and then view the test message that the topic sends to the queue. As a result, the `OrdersQueue` has one available message visible.
 ![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/558a745d-7c2b-4fab-b158-8857f20265c8)
+
+We now want to implement message filtering on the SNS topic so that each subsciber only receives those relevant to it. We'll demonstrate that by creating a new standard SQS queue for EU Orders, that stores the messages filtered out with the `location` attribute set to `eu-west`. We call it `Orders-EU` and subscribe it to the `Orders` SNS topic.
+![capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/8ae6075b-fed2-4a12-badd-e32137b248a9)
+From the SNS topic console, edit the `Orders-EU` SQS queue to enable a filtering policy based on the follwing message attribute:
+```json
+{
+"location": ["eu-west"]
+}
+```
+Similarly; we'll create another SQS queue for book orders, with the name of `BookOrders`. This time filtering happens on the level of the message body that contains the attribute of `category`. Edit it from the SNS topic console to add the following body message filter:
+```json
+{
+"category": ["books"]
+}
+```
+Now, we'll test the sysrem behavior by publishing different kind of messages to the Orders SNS topic:
 
 
 
