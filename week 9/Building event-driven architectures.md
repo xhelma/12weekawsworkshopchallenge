@@ -1,5 +1,5 @@
 # Overview
-In this workshop, we'll explore the basics of event-driven design and the main AWS services that enable building event-driven, loosely-coupled and distributed architectures like: Amazon 
+In this workshop[^1], we'll explore the basics of event-driven design and the main AWS services that enable building event-driven, loosely-coupled and distributed architectures like: Amazon 
 EventBridge, Amazon SNS and Amazon SQS.
 
 # Prerequisites
@@ -456,7 +456,41 @@ Let's test that the filtering is working as it should by sendig 3 messages:
 As a result, we see the `Orders` queue having 3 messages delivered, the `Orders-EU` and `Orders-XL-EU` queues showing 1 message delivered and `Orders-XL` with 2 messages delivered.
 ![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/9084ab98-4609-454b-8c49-8b8dba246a7d)
 
-Finally, we'll handle the case of message delivery fails by creating a dead-letter SQS queue, called `OrdersTopicDLQ`, to act as the Dead Letter Queue for messages that the `Orders` SNS topic is unable deliver to subscriptions configured with the DLQ.
+
+Finally, we'll handle the case of message delivery fails by creating a dead-letter SQS queue, called `OrdersTopicDLQ`, to act as the Dead Letter Queue for messages that the `Orders` SNS topic is unable to deliver to subscriptions configured with the DLQ.
+We need to grant permissions to the `Orders` SNS topic so that it can send messages to the `OrdersTopicDLQ` SQS queue. For that, append the following policy statement to the one present on the access policy tab of the `OrdersTopicDLQ` SQS queue after substituting with our ressources' ARN:
+```json
+{
+  "Sid": "topic-subscription-sns",
+  "Effect": "Allow",
+  "Principal": {
+    "AWS": "*"
+  },
+  "Action": "SQS:SendMessage",
+  "Resource": "OrdersTopicDLQ_ARN",
+  "Condition": {
+    "ArnLike": {
+      "aws:SourceArn": "SNS_ARN"
+    }
+  }
+ }
+```
+We'll navigate to the `DodgyFunction` Lambda function and add configure it so that it gets triggered by the `Orders` SNS topic. 
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/9f4892d1-2156-48af-bf36-48e33e35dbc7)
+Let's verify the Lambda subscription by sending out a test message to the `Orders` SNS topic. From the monitoring pane on Lambda function detail page, we can confirm that the
+function was invoked successfully one time.
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/d1802a7b-15ca-4945-9b0b-3ce9686096d6)
+From the `Orders` SNS topic, edit the `OrdersTopicDLQ` subscription so that the redriving policy to the DLQ is enabled while specifying the `OrdersTopicDLQ` as destination.
+
+
+To make message deliveries fail, we'll delete the `DodgyFunction` Lambda function. Then, resend another test message as in the previous step.
+We observe that the `Orders` queue shows both messages delivered, while the `OrdersTopicDLQ` only received one in case of delivery failure because of the Lambda function deletion.
+![Capture](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/1e83c215-7c85-4c2f-aefc-a0ec4e9b2470)
+
+
+[^1]: [Building event-driven architectures on AWS Workshop](https://catalog.us-east-1.prod.workshops.aws/workshops/63320e83-6abc-493d-83d8-f822584fb3cb/en-US)
+
+
 
 
 
