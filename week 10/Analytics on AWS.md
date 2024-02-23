@@ -37,5 +37,47 @@ We'll send around 10,000 messages to Kinesis before stopping it. The data will p
 
 # Catalog Data
 Now that we have the data, we can register it in the AWS Data Catalog before being able to query it.
+
 We need to give permissions to the AWS Glue service so that it can access the data stored in S3 and create the necessary entities in the Glue Data Catalog. Hence, we'll create an IAM role named `AnalyticsworkshopGlueRole` that has the two policies `AmazonS3FullAccess` and `AWSGlueServiceRole` attached to it.
+Next, we'll create an AWS Glue crawler with the name of `AnalyticsworkshopCrawler` that will discover the schema of the data. Then, we add the S3 bucket as our data source. We attach to it the previous IAM role and create a database named `analyticsworkshopdb` that will be the target. Set the crawler schedule frequency to be on demand. Once created, run it. Checking the database target, we can see the schema of our dataset.
+ 
+ ![image](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/1cc6961d-86a8-41cd-a4eb-407eb5e899d3)
+
+It's time to query the data using Amazon Athena. Edit the setting of the editor by specifying our S3 bucket as the location of the query result, specifically under the `query_results` folder. 
+In the query editor, we run the following query:
+```sql
+SELECT activity_type,
+         count(activity_type)
+FROM raw
+GROUP BY  activity_type
+ORDER BY  activity_type
+```
+![image](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/eadab447-375d-4a03-a17b-978b78b656b5)
+
+# Transform Data with AWS Glue
+## Using Interactive Sessions
+We'll transform our data using AWS Glue Interactive Sessions with the aid of Glue Studio and Jupyter Notebooks.
+We start by creating an IAM policy with the name `AWSGlueInteractiveSessionPassRolePolicy` and the following policy statement:
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+    "Effect": "Allow",
+    "Action": "iam:PassRole",
+    "Resource":"arn:aws:iam::<AWS account ID>:role/Analyticsworkshop-GlueISRole"
+    }
+  ]
+}
+```
+We proceed to create the `Analyticsworkshop-GlueISRole` IAM role that is used in the policy statement. We attach to it 4 policies: `AWSGlueServiceRole`, `AwsGlueSessionUserRestrictedNotebookPolicy`, `AWSGlueInteractiveSessionPassRolePolicy` and `AmazonS3FullAccess`.
+
+
+
+
+
+
+
+
+
 
