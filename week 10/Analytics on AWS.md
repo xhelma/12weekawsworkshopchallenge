@@ -72,6 +72,12 @@ We start by creating an IAM policy with the name `AWSGlueInteractiveSessionPassR
 ```
 We proceed to create the `Analyticsworkshop-GlueISRole` IAM role that is used in the policy statement. We attach to it 4 policies: `AWSGlueServiceRole`, `AwsGlueSessionUserRestrictedNotebookPolicy`, `AWSGlueInteractiveSessionPassRolePolicy` and `AmazonS3FullAccess`.
 
+Now, we can create an AWS Glue job with a PySpark Jupyter Notebook using the notebook file provided in the workshop. We name it `AnalyticsOnAWS-GlueIS` and run the code blocks one cell at time. The goal is to create a dynamic data frames for each of our raw and reference data, join them based on the `track_id` column, clean it by removing unnecessary columns using the `DropFields` transform and finally store it to our S3 bucket in Parquet format which is optimized for fast retrievel of data.
+![image](https://github.com/xhelma/12weekawsworkshopchallenge/assets/97184575/e5e90821-f7f2-41c9-bf1c-4269aa12712e)
+
+
+## Using AWS Glue Studio
+In this step, we will do the same ETL process as before but with the graphical interface. From the AWS Glue studio visual UI, we add both the raw and reference data catalog tables stored in the S3 bucket as source then we add a transform to the reference data one to change the `track_id` into an `int` type. Then join it with the raw data with the condition being joined by the `track_id` column. For the joined result, we are going to drop any column about the partition.
 
 
 
